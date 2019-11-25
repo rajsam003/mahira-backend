@@ -1,8 +1,21 @@
-const formidable = require('formidable');
+const multer = require('multer');
 const _ = require('lodash');
 const fs = require('fs');
 const Product = require('../models/product');
 const { errorHandler } = require('../helpers/dbErrorHandler')
+
+
+var storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'public/uploads')
+    },
+    filename: (req, file, cb) => {
+        cb(null, file.fieldname + '-' + Date.now())
+    }
+});
+
+exports.upload = multer({ storage: storage });
+
 
 exports.productById = (req, res, next, id) => {
     Product.findById(id)
@@ -24,49 +37,52 @@ exports.read = (req, res) => {
 }
 
 exports.create = (req, res) => {
-    let form = new formidable.IncomingForm()
-    form.keepExtensions = true
-    form.parse(req, (err, fields, files) => {
-        if (err) {
-            return res.status(400).json({
-                error: 'Image could not be uploaded'
-            })
-        }
 
-        //check for all fields
-        const { brand, size, type, color, description, price, category, quantity, shipping } = fields
+    if(!req.file){
+        return res.status(400).json({
+            status: 400,
+            error: 'Image is not selected'
+        })
+    }
 
-        if (!brand || !size || !type || !color || !description || !price || !category || !quantity || !shipping) {
-            return res.status(400).json({
-                error: 'All fields are required'
-            })
-        }
-
-        let product = new Product(fields)
-
-
-        //1 kb = 1000
-        //1 mb = 1000000
-
-        if (files.photo) {
-            if (files.photo.size > 1000000) {
+    if (req.file.size > 1000000) {
                 return res.status(400).json({
+                    status: 400,
                     error: 'Image should be less than 1mb in size'
                 })
             }
-            product.photo.data = fs.readFileSync(files.photo.path)
-            product.photo.contentType = files.photo.type
+
+    var requestFields = {
+        name : req.body.name,
+        brand : req.body.brand,
+        type : req.body.type,
+        description : req.body.description,
+        specifications : req.body.specifications,
+        pros : req.body.pros,
+        cons : req.body.cons,
+        overallRating : req.body.overallRating,
+        category : req.body.category,
+        amazonLink : req.body.amazonLink,
+        photo : {
+            data: fs.readFileSync(req.file.path),
+            contentType : req.file.mimetype
         }
+    }
+
+    var product = new Product(requestFields);
 
         product.save((err, result) => {
             if (err) {
                 return res.status(400).json({
+                    status: '400',
                     error: errorHandler(err)
                 })
             }
-            res.json(result);
+            res.json({
+                status: '200',
+                result});
         })
-    })
+
 }
 
 exports.remove = (req, res) => {
@@ -140,7 +156,7 @@ exports.update = (req, res) => {
 exports.list = (req, res) => {
     let order = req.query.order ? req.query.order : 'asc'
     let sortBy = req.query.sortBy ? req.query.sortBy : '_id'
-    let limit = req.query.limit ? parseInt(req.query.limit) : 5
+    let limit = req.query.limit ? parseInt(req.query.limit) : 10
 
     Product.find()
         .select("-photo")
@@ -251,23 +267,28 @@ exports.photo = (req, res, next) => {
 };
 
 exports.listSearch = (req, res) => {
+    console.log('Inside list Search');
+    console.log('Req : '+JSON.stringify(req.query));
     // create query object to hold search value and category value
     const query = {};
     // assign search value to query.name
     if (req.query.search) {
-        query.brand = { $regex: req.query.search, $options: "i" };
+        query.category= { $regex: req.query.search, $options: "i" };
         // assigne category value to query.category
         if (req.query.category && req.query.category != "All") {
             query.category = req.query.category;
         }
         // find the product based on query object with 2 properties
         // search and category
+        console.log("Query::"+JSON.stringify(query))
         Product.find(query, (err, products) => {
+            console.log('Inside find');
             if (err) {
                 return res.status(400).json({
                     error: errorHandler(err)
                 });
             }
+            console.log('Products:: '+JSON.stringify(products))
             res.json(products);
         }).select("-photo");
     }
@@ -276,14 +297,14 @@ exports.listSearch = (req, res) => {
 exports.decreaseQuantity = (req, res, next) => {
     let bulkOps = req.body.order.products.map((item) => {
         return {
-            updateOne : {
-                filter: {_id: item._id},
-                update: {$inc: {quantity: -item.count, sold: +item.count}}
+            updateOne: {
+                filter: { _id: item._id },
+                update: { $inc: { quantity: -item.count, sold: +item.count } }
             }
         };
     });
-    Product.bulkWrite(bulkOps, {}, (error, products)=>{
-        if(error){
+    Product.bulkWrite(bulkOps, {}, (error, products) => {
+        if (error) {
             return res.status(400).json({
                 error: ' Could not update product'
             });

@@ -1,66 +1,66 @@
 const mongoose = require('mongoose');
-const {ObjectId} = mongoose.Schema
+const { ObjectId } = mongoose.Schema
+
 
 const productSchema = new mongoose.Schema({
+    name: {
+        type: String,
+        required: true,
+        trim: true,
+        maxlength: 200
+    },
     brand: {
         type: String,
         required: true,
         trim: true,
-        maxlength : 32
-    },
-    size: {
-      type: String,
-        trim: true,
-        maxlength : 32
+        maxlength: 32
     },
     type: {
         type:String,
         trim: true,
         maxlength : 32
     },
-    color: {
-      required : true,
-      type:String,
-      trim: true,
-      maxlength : 32
-    },
-    price:{
-      type: Number,
-      trim: true,
-      required: true,
-      default: 0,
-      validate(value){
-          if(value<0){
-              throw new Error('Price must be positive number')
-          }
-      }
-    },
-    description : {
+    description: {
         type: String,
-        maxlength : 2000
+        maxlength: 10000
     },
-    category : {
+    specifications: [{
+        required : true,
+        type:String,
+        trim: true,
+        maxlength : 500
+      }],
+    pros: [{
+        type: String,
+        trim: true,
+        maxlength: 200,
+    }],
+    cons: [{
+        type: String,
+        required : true,
+        maxlength: 5000
+    }],
+    overallRating: {
+        type: String,
+        maxlength: 16
+    },
+    category: {
         type: ObjectId,
-        ref : 'Category',
+        ref: 'Category',
         required: true
     },
-    quantity: {
-        type: Number
-    },
-    sold:{
-        type: Number,
-        default: 0
-    },
-    photo:{
+    photo: {
         data: Buffer,
         contentType: String
     },
-    shipping: {
-        required: false,
-        type: Boolean
+    amazonLink: {
+        type: String,
+        required: true,
+        trim: true,
+        maxlength: 200
     }
-}, 
-{timestamps: true}
+},
+    { timestamps: true }
 );
 
 
